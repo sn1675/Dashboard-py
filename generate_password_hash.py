@@ -1,8 +1,8 @@
 import bcrypt
 import getpass
 
-password = getpass.getpass("Entre le mot de passe à hasher : ")
-confirm = getpass.getpass("Confirme le mot de passe : ")
+password = getpass.getpass("Enter password : ")
+confirm = getpass.getpass("Confirm password : ")
 
 if password != confirm:
     exit(1)
