@@ -1,0 +1,55 @@
+server:
+  host: "0.0.0.0"
+  port: 8443
+  debug: false
+
+auth:
+  username: "nath"
+  # Password stocked in .env
+
+  token_expire_minutes: 60
+
+apache:
+  access_log: "/var/log/httpd/access_log"
+  error_log: "/var/log/httpd/error_log"
+
+  # Time between every log reading (seconds)
+  poll_interval: 10
+
+database:
+  path: "data/dashboard.db"
+
+detection:
+  # Number of request in seconds by the same IP before flag
+  ddos_threshold: 50
+
+  # Number of error 404 before flag
+  scan_threshold: 10
+
+  suspicious_paths:
+    - ".env"
+    - "wp-admin"
+    - "wp-login"
+    - "phpunit"
+    - "eval-stdin"
+    - "phpmyadmin"
+    - "adminer"
+    - ".git"
+    - "config.php"
+    - "shell.php"
+    - "cmd.php"
+
+  alerts:
+    discord:
+      enabled: false
+      webhook_url: ""
+
+    email:
+      enabled: false
+
+      # Useremail in .env
+      smtp_port: 587
+
+      sender: ""
+      password: ""
+      recipient: ""

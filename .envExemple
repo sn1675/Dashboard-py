@@ -1,0 +1,2 @@
+DASHBOARD_PASSWORD_HASH="hashashash123456789$$987654321hashashash" // $python generate_password_hash.py
+DASHBOARD_SECRET_KEY="6ef9a55d543c894daf1bbb3d70c5a53b8c837aa2b11558857e0f99978c387abe" // secrets.token_hex(32)
