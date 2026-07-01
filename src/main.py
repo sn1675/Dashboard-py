@@ -12,5 +12,7 @@ def load_config(path: str = "config.yaml") -> dict:
 def main():
     config = load_config()
 
+
+
 if __name__=="__main__":
     main()
