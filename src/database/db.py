@@ -5,7 +5,7 @@ from pathlib import Path
 def get_connection(config: Dict) -> sqlite3.Connection:
     db_path = config["database"]["path"]
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(db_path, check_same_thread=False, timeout=10)
     conn.row_factory = sqlite3.Row
     return conn
 
