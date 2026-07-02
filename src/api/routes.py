@@ -10,9 +10,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 import secrets
 
-from src.parser.log_parser import tail_log
-from src.detector.anomaly import detect
-from src.database.db import insert_requests, insert_alert, get_db
+from parser.log_parser import tail_log
+from detector.anomaly import detect
+from database.db import insert_requests, insert_alert, get_db
 
 
 security = HTTPBasic()
