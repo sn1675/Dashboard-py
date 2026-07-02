@@ -10,9 +10,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 import secrets
 
-from parser.log_parser import tail_log
-from detector.anomaly import detect
-from database.db import insert_requests, insert_alert, get_connection
+from src.parser.log_parser import tail_log
+from src.detector.anomaly import detect
+from src.database.db import insert_requests, insert_alert, get_db
 
 
 security = HTTPBasic()
@@ -67,38 +67,24 @@ def create_app(config: dict) -> FastAPI:
     thread.start()
     print(f"[*] Polling démarré (intervalle : {config['apache']['poll_interval']}s)")
 
+    # --- Routes API ---
+
     @app.get("/api/stats")
     def get_stats(username: str = Depends(check_auth)):
-        conn = get_connection(config)
-        cursor = conn.cursor()
-
-        total = cursor.execute("SELECT COUNT(*) FROM requests").fetchone()[0]
-
-        top_ips = cursor.execute("""
-            SELECT ip, COUNT(*) as count
-            FROM requests
-            GROUP BY ip
-            ORDER BY count DESC
-            LIMIT 10
-        """).fetchall()
-
-        status_dist = cursor.execute("""
-            SELECT status, COUNT(*) as count
-            FROM requests
-            GROUP BY status
-            ORDER BY count DESC
-        """).fetchall()
-
-        requests_over_time = cursor.execute("""
-            SELECT strftime('%Y-%m-%dT%H:00:00', timestamp) as hour, COUNT(*) as count
-            FROM requests
-            GROUP BY hour
-            ORDER BY hour DESC
-            LIMIT 24
-        """).fetchall()
-
-        conn.close()
-
+        with get_db(config) as conn:
+            total = conn.execute("SELECT COUNT(*) FROM requests").fetchone()[0]
+            top_ips = conn.execute("""
+                SELECT ip, COUNT(*) as count FROM requests
+                GROUP BY ip ORDER BY count DESC LIMIT 10
+            """).fetchall()
+            status_dist = conn.execute("""
+                SELECT status, COUNT(*) as count FROM requests
+                GROUP BY status ORDER BY count DESC
+            """).fetchall()
+            requests_over_time = conn.execute("""
+                SELECT strftime('%Y-%m-%dT%H:00:00', timestamp) as hour, COUNT(*) as count
+                FROM requests GROUP BY hour ORDER BY hour DESC LIMIT 24
+            """).fetchall()
         return {
             "total_requests": total,
             "top_ips": [{"ip": r["ip"], "count": r["count"]} for r in top_ips],
@@ -108,26 +94,18 @@ def create_app(config: dict) -> FastAPI:
 
     @app.get("/api/alerts")
     def get_alerts(limit: int = 50, username: str = Depends(check_auth)):
-        conn = get_connection(config)
-        cursor = conn.cursor()
-        rows = cursor.execute("""
-            SELECT * FROM alerts
-            ORDER BY timestamp DESC
-            LIMIT ?
-        """, (limit,)).fetchall()
-        conn.close()
+        with get_db(config) as conn:
+            rows = conn.execute(
+                "SELECT * FROM alerts ORDER BY timestamp DESC LIMIT ?", (limit,)
+            ).fetchall()
         return [dict(r) for r in rows]
 
     @app.get("/api/requests/recent")
     def get_recent_requests(limit: int = 100, username: str = Depends(check_auth)):
-        conn = get_connection(config)
-        cursor = conn.cursor()
-        rows = cursor.execute("""
-            SELECT * FROM requests
-            ORDER BY timestamp DESC
-            LIMIT ?
-        """, (limit,)).fetchall()
-        conn.close()
+        with get_db(config) as conn:
+            rows = conn.execute(
+                "SELECT * FROM requests ORDER BY timestamp DESC LIMIT ?", (limit,)
+            ).fetchall()
         return [dict(r) for r in rows]
 
     @app.get("/api/requests/suspicious")
@@ -135,16 +113,11 @@ def create_app(config: dict) -> FastAPI:
         suspicious = config["detection"]["suspicious_paths"]
         placeholders = " OR ".join(["path LIKE ?" for _ in suspicious])
         params = [f"%{p}%" for p in suspicious]
-
-        conn = get_connection(config)
-        cursor = conn.cursor()
-        rows = cursor.execute(f"""
-            SELECT * FROM requests
-            WHERE {placeholders}
-            ORDER BY timestamp DESC
-            LIMIT 200
-        """, params).fetchall()
-        conn.close()
+        with get_db(config) as conn:
+            rows = conn.execute(f"""
+                SELECT * FROM requests WHERE {placeholders}
+                ORDER BY timestamp DESC LIMIT 200
+            """, params).fetchall()
         return [dict(r) for r in rows]
 
     # Sert le frontend statique

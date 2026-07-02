@@ -1,84 +1,80 @@
 import sqlite3
 import threading
 from pathlib import Path
+from contextlib import contextmanager
 
-_conn: sqlite3.Connection | None = None
 _lock = threading.Lock()
+_db_path: str | None = None
 
 
-def get_connection(config: dict) -> sqlite3.Connection:
-    global _conn
-    if _conn is None:
-        db_path = config["database"]["path"]
-        Path(db_path).parent.mkdir(parents=True, exist_ok=True)
-        _conn = sqlite3.connect(db_path, check_same_thread=False, timeout=30)
-        _conn.row_factory = sqlite3.Row
-        # WAL mode : permet les lectures pendant une écriture
-        _conn.execute("PRAGMA journal_mode=WAL")
-        _conn.execute("PRAGMA synchronous=NORMAL")
-    return _conn
+@contextmanager
+def get_db(config: dict):
+    global _db_path
+    if _db_path is None:
+        _db_path = config["database"]["path"]
+        Path(_db_path).parent.mkdir(parents=True, exist_ok=True)
 
-
-def get_lock() -> threading.Lock:
-    return _lock
+    with _lock:
+        conn = sqlite3.connect(_db_path, timeout=30)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA synchronous=NORMAL")
+        try:
+            yield conn
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
 
 
 def init_db(config: dict):
-    """Crée les tables si elles n'existent pas encore."""
-    conn = get_connection(config)
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS requests (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            ip          TEXT NOT NULL,
-            timestamp   TEXT NOT NULL,
-            method      TEXT,
-            path        TEXT,
-            status      INTEGER,
-            size        INTEGER,
-            referrer    TEXT,
-            user_agent  TEXT
-        )
-    """)
-
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_requests_ip ON requests(ip)")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_requests_timestamp ON requests(timestamp)")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_requests_status ON requests(status)")
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS alerts (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp   TEXT NOT NULL,
-            type        TEXT NOT NULL,
-            ip          TEXT NOT NULL,
-            detail      TEXT,
-            resolved    INTEGER DEFAULT 0
-        )
-    """)
-
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_alerts_ip ON alerts(ip)")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_alerts_type ON alerts(type)")
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS banned_ips (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            ip          TEXT UNIQUE NOT NULL,
-            reason      TEXT,
-            banned_at   TEXT NOT NULL,
-            expires_at  TEXT
-        )
-    """)
-
-    conn.commit()
+    with get_db(config) as conn:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS requests (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                ip          TEXT NOT NULL,
+                timestamp   TEXT NOT NULL,
+                method      TEXT,
+                path        TEXT,
+                status      INTEGER,
+                size        INTEGER,
+                referrer    TEXT,
+                user_agent  TEXT
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_requests_ip ON requests(ip)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_requests_timestamp ON requests(timestamp)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_requests_status ON requests(status)")
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS alerts (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp   TEXT NOT NULL,
+                type        TEXT NOT NULL,
+                ip          TEXT NOT NULL,
+                detail      TEXT,
+                resolved    INTEGER DEFAULT 0
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_alerts_ip ON alerts(ip)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_alerts_type ON alerts(type)")
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS banned_ips (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                ip          TEXT UNIQUE NOT NULL,
+                reason      TEXT,
+                banned_at   TEXT NOT NULL,
+                expires_at  TEXT
+            )
+        """)
     print("[*] Base de données initialisée")
 
 
 def insert_requests(config: dict, requests: list[dict]):
     if not requests:
         return
-    conn = get_connection(config)
-    with _lock:
+    with get_db(config) as conn:
         conn.executemany("""
             INSERT INTO requests (ip, timestamp, method, path, status, size, referrer, user_agent)
             VALUES (:ip, :timestamp, :method, :path, :status, :size, :referrer, :user_agent)
@@ -95,14 +91,11 @@ def insert_requests(config: dict, requests: list[dict]):
             }
             for r in requests
         ])
-        conn.commit()
 
 
 def insert_alert(config: dict, alert_type: str, ip: str, detail: str, timestamp: str):
-    conn = get_connection(config)
-    with _lock:
+    with get_db(config) as conn:
         conn.execute("""
             INSERT INTO alerts (timestamp, type, ip, detail)
             VALUES (?, ?, ?, ?)
         """, (timestamp, alert_type, ip, detail))
-        conn.commit()
