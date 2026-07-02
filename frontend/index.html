@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard-py</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Login -->
+<div id="login-overlay">
+  <div class="login-box">
+    <div class="login-title">dashboard-py</div>
+    <input type="text"     id="login-user" placeholder="username" autocomplete="off" />
+    <input type="password" id="login-pass" placeholder="password" />
+    <button onclick="doLogin()">Connect</button>
+    <div class="login-error" id="login-error">Invalid credentials</div>
+  </div>
+</div>
+
+<!-- Header -->
+<header>
+  <div class="header-left">
+    <div class="status-dot" id="status-dot"></div>
+    <span class="logo">dashboard-py</span>
+  </div>
+  <div class="header-right" id="clock"></div>
+</header>
+
+<!-- Main -->
+<main>
+  <!-- KPI cards -->
+  <div class="card">
+    <div class="card-label">Total Requests</div>
+    <div class="card-value" id="kpi-total">—</div>
+    <div class="card-sub">all time</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Active Alerts</div>
+    <div class="card-value red" id="kpi-alerts">—</div>
+    <div class="card-sub">unresolved</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Unique IPs</div>
+    <div class="card-value" id="kpi-ips">—</div>
+    <div class="card-sub">last 24h</div>
+  </div>
+
+  <!-- Activity chart -->
+  <div class="card span2">
+    <div class="card-label">Requests / hour</div>
+    <div class="chart-wrap">
+      <canvas id="chart-activity"></canvas>
+    </div>
+  </div>
+
+  <!-- Status codes -->
+  <div class="card">
+    <div class="card-label">Status codes</div>
+    <div class="status-grid" id="status-grid">
+      <div class="status-badge s2xx"><div class="code" id="s2xx">—</div><div class="cnt">2xx</div></div>
+      <div class="status-badge s3xx"><div class="code" id="s3xx">—</div><div class="cnt">3xx</div></div>
+      <div class="status-badge s4xx"><div class="code" id="s4xx">—</div><div class="cnt">4xx</div></div>
+      <div class="status-badge s5xx"><div class="code" id="s5xx">—</div><div class="cnt">5xx</div></div>
+    </div>
+    <div style="margin-top:14px">
+      <div class="card-label">Top IPs</div>
+      <div class="ip-list" id="top-ips"></div>
+    </div>
+  </div>
+
+  <!-- World map -->
+  <div class="card" id="map-card">
+    <div class="card-label">Live traffic — origin</div>
+    <div class="map-container">
+      <svg id="world-svg" viewBox="0 0 1000 500" xmlns="http://www.w3.org/2000/svg">
+        <!-- Continents simplified -->
+        <!-- North America -->
+        <path d="M80,60 L200,55 L230,80 L240,120 L220,160 L190,180 L160,200 L130,210 L100,190 L75,170 L60,140 L65,100 Z"/>
+        <!-- Central America -->
+        <path d="M160,200 L190,195 L200,220 L185,240 L165,235 L155,215 Z"/>
+        <!-- South America -->
+        <path d="M170,240 L220,235 L260,260 L275,310 L270,370 L240,420 L200,430 L175,400 L155,350 L150,300 L160,265 Z"/>
+        <!-- Europe -->
+        <path d="M450,55 L510,50 L530,65 L525,90 L500,100 L480,110 L460,100 L445,80 Z"/>
+        <!-- Scandinavia -->
+        <path d="M470,30 L500,25 L510,45 L490,50 L470,45 Z"/>
+        <!-- Africa -->
+        <path d="M445,120 L510,115 L540,140 L550,200 L540,270 L510,320 L480,340 L450,320 L430,270 L425,200 L430,150 Z"/>
+        <!-- Russia / Asia North -->
+        <path d="M535,30 L750,25 L800,45 L790,80 L720,90 L640,85 L560,80 L535,60 Z"/>
+        <!-- Middle East -->
+        <path d="M530,110 L590,105 L610,130 L600,160 L570,165 L540,150 L525,130 Z"/>
+        <!-- South Asia -->
+        <path d="M595,120 L660,115 L680,150 L670,190 L640,200 L610,180 L595,155 Z"/>
+        <!-- East Asia -->
+        <path d="M700,60 L800,55 L830,90 L820,140 L780,155 L730,145 L700,120 L690,90 Z"/>
+        <!-- Southeast Asia -->
+        <path d="M700,155 L760,150 L780,180 L760,210 L720,205 L700,185 Z"/>
+        <!-- Australia -->
+        <path d="M730,280 L830,275 L860,310 L850,360 L810,380 L760,370 L730,340 L720,305 Z"/>
+        <!-- Japan -->
+        <path d="M810,85 L825,80 L835,100 L820,110 L808,100 Z"/>
+        <!-- UK -->
+        <path d="M438,55 L448,50 L452,65 L442,70 Z"/>
+        <!-- Greenland -->
+        <path d="M270,20 L320,15 L330,40 L310,55 L280,50 L265,35 Z"/>
+      </svg>
+      <svg id="pings-svg" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;" viewBox="0 0 1000 500" xmlns="http://www.w3.org/2000/svg">
+        <g id="pings-layer"></g>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Alerts -->
+  <div class="card" id="alerts-card">
+    <div class="card-label">Security alerts</div>
+    <div class="alerts-list" id="alerts-list">
+      <div class="empty">No alerts yet</div>
+    </div>
+  </div>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -61,7 +61,6 @@ def init_db(config: Dict):
     print("[*] Base de données initialisée")
 
 def insert_requests(config: dict, requests: list[dict]):
-    """Insère une batch de requêtes parsées."""
     if not requests:
         return
     conn = get_connection(config)
